@@ -36,10 +36,4 @@
 #define COMPAT_DDI_DEFINE_STREAM_OPS DDI_DEFINE_STREAM_OPS
 #endif
 
-#define HW_LSO 0x10
-
-#define DB_LSOMSS(mp) ((mp)->b_datap->db_struioun.cksum.pad)
-
-#define ETHERTYPE_VLAN (0x8100)
-
 #endif /* _VMXNET3_SOLARIS_COMPAT_H_ */
