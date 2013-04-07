@@ -31,14 +31,13 @@ static int       vmxnet3_getstat(void *, uint_t, uint64_t *);
 static int       vmxnet3_start(void *);
 static void      vmxnet3_stop(void *);
 static int       vmxnet3_setpromisc(void *, boolean_t);
-static void      vmxnet3_ioctl(void *arg, queue_t *wq, mblk_t *mp);
 static int       vmxnet3_multicst(void *, boolean_t, const uint8_t *);
 static int       vmxnet3_unicst(void *, const uint8_t *);
 static boolean_t vmxnet3_getcapab(void *, mac_capab_t, void *);
 
 /* MAC callbacks */
 static mac_callbacks_t vmxnet3_mac_callbacks = {
-   .mc_callbacks = MC_GETCAPAB | MC_IOCTL,
+   .mc_callbacks = MC_GETCAPAB,
    .mc_getstat = vmxnet3_getstat,
    .mc_start = vmxnet3_start,
    .mc_stop = vmxnet3_stop,
@@ -51,7 +50,6 @@ static mac_callbacks_t vmxnet3_mac_callbacks = {
    .mc_resources = NULL,
 #endif
 #endif
-   .mc_ioctl = vmxnet3_ioctl,
    .mc_getcapab = *vmxnet3_getcapab,
 };
 
@@ -977,11 +975,6 @@ vmxnet3_change_mtu(vmxnet3_softc_t *dp, uint32_t new_mtu)
       VMXNET3_WARN(dp, "New MTU not in valid range [%d, %d].\n",
                    VMXNET3_MIN_MTU, VMXNET3_MAX_MTU);
       return EINVAL;
-   } else if (new_mtu > ETHERMTU && !dp->allow_jumbo) {
-
-      VMXNET3_WARN(dp, "MTU cannot be greater than %d because accept-jumbo "
-                   "is not enabled.\n", ETHERMTU);
-      return EINVAL;
    }
 
    if (dp->devEnabled) {
@@ -1000,120 +993,6 @@ vmxnet3_change_mtu(vmxnet3_softc_t *dp, uint32_t new_mtu)
 
    return ret;
 }
-
-
-/*
- *---------------------------------------------------------------------------
- *
- * vmxnet3_ioctl --
- *
- *    DDI/DDK callback to handle IOCTL in driver. Currently it only handles
- *    ND_SET ioctl. Rest all are ignored. The ND_SET is used to set/reset
- *    accept-jumbo ndd parameter for the interface.
- *
- * Results:
- *    Nothing is returned directly. An ACK or NACK is conveyed to the calling
- *    function from the mblk which was used to call this function.
- *
- * Side effects:
- *    MTU can be changed and device can be reset.
- *
- *---------------------------------------------------------------------------
- */
-
-static void
-vmxnet3_ioctl(void *arg, queue_t *wq, mblk_t *mp)
-{
-   vmxnet3_softc_t *dp = arg;
-   int             ret = EINVAL;
-   IOCP            iocp;
-   mblk_t          *mp1;
-   char            *valp, *param;
-   int             data;
-
-   iocp = (void *)mp->b_rptr;
-   iocp->ioc_error = 0;
-
-   switch (iocp->ioc_cmd) {
-   case ND_SET:
-
-      /* the mblk in continuation would contain the ndd parameter name
-       * and data value to be set
-       */
-      mp1 = mp->b_cont;
-      if (!mp1) {
-         VMXNET3_WARN(dp, "Error locating parameter name.\n");
-         ret = EINVAL;
-         break;
-      }
-
-      mp1->b_datap->db_lim[-1] = '\0';	/* Force null termination */
-
-      /*
-       * From /usr/src/uts/common/inet/nd.c : nd_getset()
-       * "logic throughout nd_xxx assumes single data block for ioctl.
-       *  However, existing code sends in some big buffers."
-       */
-      if (mp1->b_cont) {
-         freemsg(mp1->b_cont);
-         mp1->b_cont = NULL;
-      }
-
-      valp = (char *)mp1->b_rptr;	/* Points to param name*/
-      ASSERT(valp);
-      param = valp;
-      VMXNET3_DEBUG(dp, 3, "ND Set ioctl for %s\n", param);
-
-      /* Go past the end of this null terminated string to get the data value.*/
-      while (*valp && valp <= (char *)mp1->b_wptr)
-         valp++;
-
-      if (valp > (char *)mp1->b_wptr) {
-         /* We are already beyond the readable area of mblk and still havent
-          * found the end of param string.
-          */
-         VMXNET3_WARN(dp, "No data value found to be set to param.\n");
-         data = -1;
-      } else {
-         valp++;                        /* Now this points to data string */
-         data = (int)*valp - (int)'0';  /* Get numeric value of first letter */
-      }
-
-      if (strcmp("accept-jumbo", param) == 0) {
-         if (data == 1) {
-            VMXNET3_DEBUG(dp, 1, "Accepting jumbo frames\n");
-            dp->allow_jumbo = 1;
-            vmxnet3_change_mtu(dp, VMXNET3_MAX_MTU);
-            ret = 0;
-         } else if (data == 0) {
-            dp->allow_jumbo = 0;
-            vmxnet3_change_mtu(dp, ETHERMTU);
-            VMXNET3_DEBUG(dp, 1, "Rejecting jumbo frames\n");
-            ret = 0;
-         } else {
-            VMXNET3_WARN(dp, "Invalid data value to be set, use 1 or 0.\n");
-            ret = -1;
-         }
-      }
-      freemsg(mp1);
-      mp->b_cont = NULL;
-      break;
-
-   default:
-      if (mp->b_cont) {
-         freemsg(mp->b_cont);
-         mp->b_cont = NULL;
-      }
-      ret = -1;
-      break;
-   }
-
-   if (ret == 0)
-      miocack(wq, mp, 0, 0);
-   else
-      miocnak(wq, mp, 0, EINVAL);
-}
-
 
 /*
  *---------------------------------------------------------------------------
