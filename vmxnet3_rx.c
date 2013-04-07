@@ -331,16 +331,16 @@ vmxnet3_rx_hwcksum(vmxnet3_softc_t *dp, mblk_t *mp,
 
    if (!compDesc->rcd.cnc) {
       if (compDesc->rcd.v4 && compDesc->rcd.ipc) {
-         flags |= HCK_IPV4_HDRCKSUM;
+         flags |= HCK_IPV4_HDRCKSUM_OK;
          if ((compDesc->rcd.tcp || compDesc->rcd.udp) &&
               compDesc->rcd.tuc) {
-            flags |= HCK_FULLCKSUM | HCK_FULLCKSUM_OK;
+            flags |= HCK_FULLCKSUM_OK;
          }
       }
 
       VMXNET3_DEBUG(dp, 3, "rx cksum flags = 0x%x\n", flags);
 
-      hcksum_assoc(mp, NULL, NULL, 0, 0, 0, 0, flags, 0);
+      mac_hcksum_set(mp, 0, 0, 0, 0, flags);
    }
 }
 
