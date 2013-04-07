@@ -37,10 +37,13 @@ CFLAGS    += -O2
 CFLAGS    += -Wall -Werror -Wno-unknown-pragmas
 CFLAGS    += -U_NO_LONGLONG
 CFLAGS    += -D_KERNEL
-CFLAGS    += -I../../../lib/include    # for buildNumber.h
 
 CFLAGS    += -ffreestanding
 CFLAGS    += -nodefaultlibs
+
+ifneq ($(shell echo "$(VM_UNAME)" | cut -c-4),5.11)
+CFLAGS += -DSOL11
+endif
 
 ifdef OVT_SOURCE_DIR
    CFLAGS += -I$(OVT_SOURCE_DIR)/lib/include
