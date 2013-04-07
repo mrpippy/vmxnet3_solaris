@@ -1413,9 +1413,9 @@ vmxnet3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
     * Read the MAC address from the device
     */
    ret32 = VMXNET3_BAR1_GET32(dp, VMXNET3_REG_MACL);
-   *((uint32_t *) (dp->macaddr + 0)) = ret32;
-   ret32 = VMXNET3_BAR1_GET32(dp, VMXNET3_REG_MACH);
-   *((uint16_t *) (dp->macaddr + 4)) = ret32;
+   memcpy(&(dp->macaddr[0]), &ret32, sizeof(ret32));
+   ret16 = VMXNET3_BAR1_GET32(dp, VMXNET3_REG_MACH);
+   memcpy(&(dp->macaddr[4]), &ret16, sizeof(ret16));
 
    /*
     * Register with the MAC framework
