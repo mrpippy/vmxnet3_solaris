@@ -109,7 +109,7 @@ vmxnet3_tx_prepare_offload(vmxnet3_softc_t *dp,
    ol->hlen = 0;
    ol->msscof = 0;
 
-   hcksum_retrieve(mp, NULL, NULL, &start, &stuff, NULL, &value, &flags);
+   mac_hcksum_get(mp, &start, &stuff, NULL, &value, &flags);
 
    mac_lso_get(mp, &mss, &lsoflags);
 
