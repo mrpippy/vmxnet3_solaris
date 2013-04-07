@@ -1437,7 +1437,7 @@ vmxnet3_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
    macr->m_max_sdu = vmxnet3_getprop(dp, "MTU", VMXNET3_MIN_MTU,
                                      VMXNET3_MAX_MTU, ETHERMTU);
 #else
-   macr->m_max_sdu = ETHERMTU;
+   macr->m_max_sdu = VMXNET3_MAX_MTU;
 #endif
    macr->m_pdata = NULL;
    macr->m_pdata_size = 0;
