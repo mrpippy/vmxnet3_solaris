@@ -35,9 +35,14 @@ static int       vmxnet3_multicst(void *, boolean_t, const uint8_t *);
 static int       vmxnet3_unicst(void *, const uint8_t *);
 static boolean_t vmxnet3_getcapab(void *, mac_capab_t, void *);
 
+static int       vmxnet3_m_setprop(void *, const char *, mac_prop_id_t, uint_t, const void *);
+static int       vmxnet3_m_getprop(void *, const char *, mac_prop_id_t, uint_t, void *);
+static void      vmxnet3_m_propinfo(void *, const char *, mac_prop_id_t, mac_prop_info_handle_t);
+
+
 /* MAC callbacks */
 static mac_callbacks_t vmxnet3_mac_callbacks = {
-   .mc_callbacks = MC_GETCAPAB,
+   .mc_callbacks = MC_GETCAPAB | MC_PROPERTIES,
    .mc_getstat = vmxnet3_getstat,
    .mc_start = vmxnet3_start,
    .mc_stop = vmxnet3_stop,
@@ -51,6 +56,10 @@ static mac_callbacks_t vmxnet3_mac_callbacks = {
 #endif
 #endif
    .mc_getcapab = *vmxnet3_getcapab,
+
+   .mc_setprop = vmxnet3_m_setprop,
+   .mc_getprop = vmxnet3_m_getprop,
+   .mc_propinfo = vmxnet3_m_propinfo,
 };
 
 /* Tx DMA engine description */
@@ -1036,6 +1045,68 @@ vmxnet3_getcapab(void *data, mac_capab_t capab, void *arg)
    VMXNET3_DEBUG(dp, 3, "getcapab(0x%x) -> %s\n", capab, ret ? "yes" : "no");
 
    return ret;
+}
+
+static int
+vmxnet3_m_setprop(void *data, const char *prop_name, mac_prop_id_t prop_id, uint_t prop_val_size, const void *prop_val)
+{
+    vmxnet3_softc_t *dp = data;
+    int ret = 0;
+
+    switch (prop_id)
+    {
+       case MAC_PROP_MTU: {
+	  uint32_t mtu;
+
+	  memcpy(&mtu, prop_val, sizeof(mtu));
+	  ret = vmxnet3_change_mtu(dp, mtu);
+	  break;
+       }
+       default:
+	  ret = ENOTSUP;
+	  break;
+    }
+
+    return ret;
+}
+
+
+static int
+vmxnet3_m_getprop(void *data, const char *prop_name, mac_prop_id_t prop_id, uint_t prop_val_size, void *prop_val)
+{
+    vmxnet3_softc_t *dp = data;
+    int ret = 0;
+
+    switch (prop_id)
+    {
+       case MAC_PROP_MTU: {
+	  memcpy(prop_val, &(dp->cur_mtu), sizeof(uint32_t));
+	  break;
+       }
+       default:
+	  ret = ENOTSUP;
+	  break;
+    }
+
+    return ret;
+}
+
+static void
+vmxnet3_m_propinfo(void *data, const char *prop_name, mac_prop_id_t prop_id, mac_prop_info_handle_t prop_handle)
+{
+    //vmxnet3_softc_t *dp = data;
+
+    switch (prop_id)
+    {
+       case MAC_PROP_MTU: {
+	  mac_prop_info_set_range_uint32(prop_handle, VMXNET3_MIN_MTU, VMXNET3_MAX_MTU);
+	  mac_prop_info_set_default_uint32(prop_handle, ETHERMTU);
+	  break;
+       }
+       default:
+	  break;
+    }
+
 }
 
 
